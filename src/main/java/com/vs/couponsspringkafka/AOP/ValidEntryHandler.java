@@ -15,7 +15,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
-import java.sql.Date;
 
 @Aspect
 @Component
@@ -127,30 +126,23 @@ public class ValidEntryHandler extends CustomHandler{
     }
 
     public void couponValidityToAdd(Company company, Coupon coupon) throws CouponRESTExceptionHandler {
-        if (couponRepository.existsByTitleAndCompany(coupon.getTitle(), company))
-            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.COUPON_ALREADY_EXISTS);
-        if (coupon.getStartDate().before(new Date(System.currentTimeMillis())))
-            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.TOO_LATE);
+        coupon
+                .ifAlreadyExists(couponRepository)
+                .ifEndDateIsInTheFuture();
     }
 
     public void couponValidityToUpdate(Company company, Coupon coupon) throws CouponRESTExceptionHandler {
-        if (!couponRepository.existsByIdAndCompany(coupon.getId(), company))
-            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_UPDATE.getFailure(), ExpReason.COUPON_NOT_AVAILABLE);
-        if (couponRepository.existsByTitleAndCompanyAndIdNot(coupon.getTitle(), company, coupon.getId()))
-            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_UPDATE.getFailure(), ExpReason.COUPON_ALREADY_EXISTS);
+        coupon
+                .ifExists(couponRepository)
+                .ifExistsAnotherOne(couponRepository, company);
     }
 
     public void couponValidity(Company company, Coupon coupon) throws CouponRESTExceptionHandler {
-        if (coupon.getAmount() < 1)
-            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.WRONG_AMOUNT);
-        if (coupon.getEndDate().before(new Date(System.currentTimeMillis())))
-            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.TOO_LATE);
-        if (coupon.getEndDate().before(coupon.getStartDate()))
-            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.END_BEFORE_FINISH);
-        if (coupon.getTitle().isEmpty() || coupon.getDescription().isEmpty())
-            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.EMPTY_FIELDS);
-        if (coupon.getPrice() <= 0)
-            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.WRONG_PRICE);
+        coupon
+                .ifAmountIsEnough(1)
+                .ifEndDateIsInTheFuture()
+                .ifEndDateIsBeforeStartDate()
+                .ifPriceIsAboveMinimum(0);
     }
 
     public void purchaseValidity(Customer customer, Coupon coupon) throws CouponRESTExceptionHandler {

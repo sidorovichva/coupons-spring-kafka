@@ -2,10 +2,15 @@ package com.vs.couponsspringkafka.beans;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.gson.annotations.Expose;
+import com.vs.couponsspringkafka.Exceptions.CouponRESTException;
+import com.vs.couponsspringkafka.Exceptions.CouponRESTExceptionHandler;
+import com.vs.couponsspringkafka.Exceptions.ExpReason;
+import com.vs.couponsspringkafka.repositories.CouponRepository;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Component;
 
 import javax.persistence.*;
@@ -77,5 +82,47 @@ public class Coupon {
                 ", price=" + price +
                 ", image='" + image + '\'' +
                 '}';
+    }
+
+    public Coupon ifAmountIsEnough(int minimum) throws CouponRESTExceptionHandler {
+        if (this.getAmount() < minimum)
+            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.WRONG_AMOUNT);
+        else return this;
+    }
+
+    public Coupon ifEndDateIsInTheFuture() throws CouponRESTExceptionHandler {
+        if (this.getEndDate().before(new Date(System.currentTimeMillis())))
+            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.TOO_LATE);
+        else return this;
+    }
+
+    public Coupon ifEndDateIsBeforeStartDate() throws CouponRESTExceptionHandler {
+        if (this.getEndDate().before(this.getStartDate()))
+            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.END_BEFORE_FINISH);
+        else return this;
+    }
+
+    public Coupon ifPriceIsAboveMinimum(double minimum) throws CouponRESTExceptionHandler {
+        if (this.getPrice() <= minimum)
+            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.WRONG_PRICE);
+        else return this;
+    }
+
+    public Coupon ifAlreadyExists(CouponRepository repository) throws CouponRESTExceptionHandler {
+        if (repository.existsByTitleAndCompany(this.getTitle(), company))
+            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_ADD.getFailure(), ExpReason.COUPON_ALREADY_EXISTS);
+        else return this;
+    }
+
+    public Coupon ifExists(CouponRepository repository) throws CouponRESTExceptionHandler {
+        if (!repository.existsByIdAndCompany(this.getId(), this.getCompany()))
+            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_UPDATE.getFailure(), ExpReason.COUPON_NOT_AVAILABLE);
+        else return this;
+    }
+
+    public Coupon ifExistsAnotherOne(CouponRepository repository, Company company) throws CouponRESTExceptionHandler {
+        if (repository.existsByTitleAndCompanyAndIdNot(this.getTitle(), company, this.getId()))
+            throw new CouponRESTExceptionHandler(CouponRESTException.COUPON_UPDATE.getFailure(), ExpReason.COUPON_ALREADY_EXISTS);
+        else return this;
     }
 }
